@@ -7,6 +7,7 @@ typedef struct{
     char nome[25];
     float valorUnitario;
     int quantidade;
+    //int quantidadeVendidos;
 }Produto;
 
 Produto *produtos = NULL;
@@ -18,13 +19,25 @@ void menuProdutos();
 void menuVendas();
 
 //MENU PRODUTOS
-void listarProdutos();
 void exibirProdutos();
 void cadastrarProduto();
 void atualizarProduto();
 void excluirProduto();
+void salvarProdutos();
+void lerProdutos();
+
+//MENU VENDAS
+void relizarVendas();
+
+//OUTRAS FUNÇÕES
+void listarProdutos();
+void primeiraLeitura();
+float subtotal(int codigo, int quantidade);
+void cupomFiscal();
 
 int main(){
+
+    primeiraLeitura();
 
     int op;
     char continuar = 's';
@@ -47,6 +60,34 @@ int main(){
     }
 
     return 0;
+}
+
+void primeiraLeitura(){
+
+    //int qprtLidos;
+    Produto prtLidos;
+
+    FILE *arqProdutos;
+    arqProdutos = fopen("produtos.txt", "r");
+
+    if (arqProdutos == NULL) {
+        printf("\nErro ao abrir o arquivo.\n");
+    }
+
+    while (fscanf(arqProdutos, "%d %25s %f %d", &prtLidos.codigo, prtLidos.nome, &prtLidos.valorUnitario, &prtLidos.quantidade) == 4) {
+        //printf("Codigo: %d\nNome: %-25s\nValor: %.2f\nQuantidade: %d\n--\n", prtLidos.codigo, prtLidos.nome, prtLidos.valorUnitario, prtLidos.quantidade);
+
+        produtos = (Produto *)realloc(produtos, (indiceG + 1) * sizeof(Produto));
+        produtos[indiceG++] = prtLidos;
+
+        //qprtLidos++;
+    }
+
+    fclose(arqProdutos);
+
+    //printf("\nForam lidos %i produtos.\n", qprtLidos);
+
+    //menuProdutos();
 }
 
 int menuPrincipal(){
@@ -106,13 +147,13 @@ void menuProdutos(){
                 excluirProduto();
                 break;
             case 5:
-                printf("Salvar\n");
+                salvarProdutos();
                 break;
             case 6:
-                printf("Ler\n");
+                lerProdutos();
                 break;
             case 7:
-                printf("Voltar\n");
+                menuPrincipal();
                 break;
         }
 
@@ -332,9 +373,9 @@ void excluirProduto(){
                     printf("Estoque: %i\n\n", produtos[i].quantidade);
 
                     printf("Confirmar exclusao?\n");
-                    printf("\n  S - Sim | Qualquer tecla - Nao\n");
+                    printf("  S - Sim | Qualquer tecla - Nao\n");
 
-                    printf("Digite a opcao escolhida: ");
+                    printf("\nDigite a opcao escolhida: ");
                     scanf("%c", &confirmar);
                     getchar();
 
@@ -364,7 +405,62 @@ void excluirProduto(){
     }
 }
 
+void salvarProdutos(){
 
+    int i;
+
+    if(produtos == NULL || indiceG == 0){
+        printf("\nNenhum produto cadastrado.\n");
+        menuProdutos();
+    }else{
+        FILE *arqProdutos;
+
+        arqProdutos = fopen("produtos.txt", "w");
+
+        if(arqProdutos == NULL){
+            printf("\nErro ao abrir o arquivo.\n");
+            menuProdutos();
+        }
+
+        for(i=0;i<indiceG;i++){
+            fprintf(arqProdutos, "%d\n%s\n%.2f\n%d\n", produtos[i].codigo, produtos[i].nome, produtos[i].valorUnitario, produtos[i].quantidade);
+        }
+        fclose(arqProdutos);
+
+        printf("\nProdutos salvos com sucesso!\n");
+        menuProdutos();
+    }
+}
+
+void lerProdutos() {
+
+    int qprtLidos;
+    Produto prtLidos;
+
+    FILE *arqProdutos;
+    arqProdutos = fopen("produtos.txt", "r");
+
+    if (arqProdutos == NULL) {
+        printf("\nErro ao abrir o arquivo.\n");
+        menuProdutos();
+    }
+
+    printf("\nProdutos lidos do arquivo:\n\n");
+    while (fscanf(arqProdutos, "%d %25s %f %d", &prtLidos.codigo, prtLidos.nome, &prtLidos.valorUnitario, &prtLidos.quantidade) == 4) {
+        printf("Codigo: %d\nNome: %-25s\nValor: %.2f\nQuantidade: %d\n--\n", prtLidos.codigo, prtLidos.nome, prtLidos.valorUnitario, prtLidos.quantidade);
+
+        produtos = (Produto *)realloc(produtos, (indiceG + 1) * sizeof(Produto));
+        produtos[indiceG++] = prtLidos;
+
+        qprtLidos++;
+    }
+
+    fclose(arqProdutos);
+
+    printf("\nForam lidos %i produtos.\n", qprtLidos);
+
+    menuProdutos();
+}
 
 void menuVendas(){
 
@@ -383,18 +479,128 @@ void menuVendas(){
 
         switch(op){
             case 1:
-                printf("Realizar venda\n");
+                realizarVenda();
                 break;
             case 2:
                 printf("Relatorio de vendas\n");
                 break;
             case 3:
-                printf("Voltar\n");
+                menuPrincipal();
                 break;
         }
 
         if(op < 1 || op > 3){
-            printf("Opcao invalida, tente novamente.\n");
+            printf("\nOpcao invalida, tente novamente.\n");
         }
     }while(op < 1 || op > 3);
+}
+
+void realizarVenda(){
+
+    int i;
+    int codigo, quantidade;
+    int encontrado = 0, total = 0;
+    float subtot = 0;
+    char continuar;
+
+    if(produtos == NULL || indiceG == 0){
+        printf("\nNenhum produto em estoque para venda.\n");
+        menuVendas();
+    }else{
+        printf("\n__________________________\n");
+        printf("Relizar venda\n");
+
+        listarProdutos();
+        do{
+            printf("\nDigite o codigo do item p/ venda: ");
+            scanf("%i", &codigo);
+            getchar();
+
+            encontrado = 0;
+            for(i=0;i<indiceG;i++){
+                if(codigo == produtos[i].codigo){
+                    encontrado = 1;
+                    break;
+                }
+            }
+
+            if(encontrado == 1){
+                do{
+                    if(produtos[i].quantidade <= 0){
+                        printf("Produto fora de estoque, tente novamente.\n");
+                        realizarVenda();
+                    }else{
+                        printf("\nItem escolhido: %s\n", produtos[i].nome);
+
+                        do{
+                            printf("Digite a quantidade p/ venda: ");
+                            scanf("%i", &quantidade);
+                            getchar();
+
+                            if(quantidade <= 0){
+                                printf("\nValor invalido, tente novamente.\n");
+                                realizarVenda();
+                            }else{
+                                if(produtos[i].quantidade - quantidade < 0){
+                                    printf("\nEstoque insuficiente, tente novamente.\n");
+                                    realizarVenda();
+                                }else{
+                                    subtot = subtotal(codigo, quantidade);
+                                    total = total + subtot; // acrescimo do valor total da compra toda vez que fecha um subtotal
+                                    //totalg = total; // passando valor total da compra para variavel global 'totalg'
+
+                                    printf("\nO subtotal e: %.2f\n", subtot);
+
+                                    printf("\nDeseja realizar outra venda?\n");
+                                    printf(" S - Sim | Qualquer tecla - Nao\n");
+
+                                    printf("\nDigite a opcao escolhida: ");
+                                    scanf("%c", &continuar);
+                                    getchar();
+
+                                    if(continuar == 's' || continuar == 'S'){
+                                        realizarVenda();
+                                    }else{
+                                        cupomFiscal();
+                                    }
+                                }
+                            }
+                        }while(quantidade <= 0);
+                    }
+                }while(produtos[i].quantidade < 0);
+            }else{
+                printf("Codigo nao encontrado, tente novamente.\n");
+            }
+        }while(encontrado != 1);
+    }
+}
+
+float subtotal(int codigo, int quantidade){
+
+    int i;
+    float subtot;
+
+    for(i=0;i<indiceG;i++){
+        if(codigo == produtos[i].codigo){
+            subtot = produtos[i].valorUnitario * quantidade;
+
+            //passando os dados da struct de produtos para a struct do cupom
+            //vendidos[indiceG2].codigo = codigo;
+            //strcpy(vendidos[indiceG2].nome, estoque[i].nome);
+            //vendidos[indiceG2].valor = estoque[i].valor;
+            //vendidos[indiceG2].subtotal = subtot;
+            //vendidos[indiceG2].quantidade = quantidade;
+
+            produtos[i].quantidade = produtos[i].quantidade - quantidade; //subtraindo quantidade comprada do estoque no pós-venda
+            //indiceG2++; //aumenta o tamanho do vetor para o cupom fiscal
+        }
+    }
+    return subtot;
+}
+
+void cupomFiscal(){
+
+    int i;
+
+    printf("\n CUPOM FISCAL \n");
 }
